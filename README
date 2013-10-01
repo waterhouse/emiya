@@ -1,0 +1,38 @@
+I set out to create an Arc interpreter using real-time GC in assembly.  I have not managed to finish that in time for this competition.  However, there are some interesting aspects of the interpreter, and the "standard library", which may be worth submitting as a project in their own right.  So I am doing that.  I shall upload the things necessary to run it, as well as my plans for the assembly interpreter.
+
+The interpreter has the following property: It does not treat any symbols as being special.  That is, a form beginning with 'if is not treated specially; rather, the symbol 'if is initially bound to a special "if-object", and the interpreter will treat specially any form where the expression in the function position evaluates to the special "if-object".  Thus, you can say
+
+  (let h if
+    (h (is 1 2)
+       (/ 1 0)
+       'phew)) ;to borrow an example from On Lisp
+
+and it will return 'phew, just as if you had written 'if instead of 'h.  Likewise, you can write
+
+  (let xs (cons if nil)
+    ((car xs) (is 1 2)
+              (/ 1 0)
+              'phew))
+
+which will work the same.  In other words, special forms are first-class objects.  So are macros:
+
+  (mac fake-if args `(if ,@args))
+  (let u (cons fake-if 3)
+    ((car u) (is 1 2) (/ 1 0) 'phew))
+  => 'phew
+
+The drawback of a naive implementation of first-class macros is, of course, significantly reduced performance due to repeated macroexpansion at runtime.  I say "naive"; do I have something better in mind?  Yes.
+
+First, it should be possible for a user to say "just take the body of this function and expand the macros in it *now*, rather than doing it repeatedly at runtime", either on a per-function basis or by changing a global flag.  Second, it may be possible for a compiler to do that automatically, either in a really brittle way ("if you redefine this macro as something else, then you'll have to manually recompile all functions that you want recompiled"), or in a robust way ("when you redefine a macro, the system will recompile, or at least mark for recompilation, all functions that depended on it").  Third, this problem is basically the same as the problem of inlining functions, with the same solutions (the manual control of "user says to please inline these functions", the possible brittle-ness if someone redefines an inlined function).
+
+The problem of inlining is one that I have left up to the user, and then, as a user, written an example solution.  I have a function, "de-macro", which looks somewhat similar to the "eval" function in the interpreter code... It takes the body of a function, and expands all globally named macros in it (that is, when calling de-macro on "(f xs ...)", if 'f is bound to a macro and is not shadowed lexically, then it expands that expression).
+
+The interpreter provides functions that will extract the body and the saved lexenv from a closure.  Therefore, we can "compile" a closure by grabbing its body, de-macroizing it, and making a new closure with the expanded body and the same lexenv.  The "standard library", a bunch of user code that defines much of Arc in terms of Arc, races to define everything it needs (in a nice, lazy, mostly-idiomatic Arc way, using macros) in order to define "de-macro" and such "compiling" procedures [clinically referred to as "expand-closure" and "expand-macro"], then uses them to "compile" all functions defined to date--which makes everything, including, delightfully, de-macro itself, run faster.  And then it rebinds "def" and "mac" so that they will "compile" whatever they are given--nothing in the standard library actually uses the first-class nature of macros, and users are unlikely to want that either (though the original definitions are kept as "plain-def" and "plain-mac" if desired).
+
+You will find that "quasiquote" is defined as a macro, like any other, by the user.  Also, optional arguments are implemented by redefining "fn" (Arc's equivalent of "lambda") as a macro that expands to a call to "underlying-fn", which is bound to the fn special object--again, by the user.  Then everything is recompiled, so that this redefinition does not cost anything at runtime; some care is needed here, to avoid an infinite loop, if a function used to recompile "fn" itself uses "fn".
+
+It is intended that other forms of compiler optimization, such as the various kinds of inlining (e.g. inlining n-ary functions into their 2-argument versions), be implemented as user programs.  All the user really needs is to be able to grab lexenvs and bodies from closures (and to reach inside macros for the closures they contain), and to grab a list of all bound symbols.  It is further intended that compilation itself, i.e. creating an executable byte-string of machine code, and putting a pointer to it and a lexenv into a structure, be done by the user.
+
+
+
+I'll provide instructions for setting up my modified version of arc3.1 (it, or something deliberately designed to be equivalent to it, is necessary to run the interpreter).  I may also clean up the dyn-cont7 file itself (remove rambling or obscene comments).
