@@ -367,7 +367,10 @@
      (let k [do (= globe!that _)
               wrn._ 
               (huh-repl-cont-closure nil nil nil)]
-       (ueval (read) nil nil k))))
+       (let x (read)
+         (if (is x 'arc-plz)
+             nil
+             (ueval x nil nil k))))))
 (def huh ()
   (huh-repl-cont-closure nil nil nil))
 
@@ -806,10 +809,13 @@
 ;and whatnot, that throws proper errors.
 ;Oh man.
 
-(= last-uevaled nil)
+(= last-uevaled nil) ;useful for debugging
 
-([len:map [do (ueval _ nil nil idfn)
-            (= last-uevaled _)] _]
+(def run (xs) ;aka ueval-sequence
+  (len:map [do (ueval _ nil nil idfn)
+             (= last-uevaled _)] xs))
+
+(= part1
  '((assign mac (make-mac (fn (name args . body)
                            (list 'assign name
                                  (list 'make-mac
@@ -1003,7 +1009,7 @@
      nil)
    
    (def ssexpand (x)
-     (err "Aw crap, ssexpansion!" x))
+     (err "We are unprepared to ssexpand at the moment" x))
    
    ;with ssx semantics, we will probably dss an entire expression
    ;before handing it to anything like the following.
@@ -1071,7 +1077,7 @@
                  (qq-narb 'unquote-splicing (expand-qq u (- n 1)))))
            (expand-qq-rest x n))))
    
-   (def qq-narb (name v) ;version 1: renamed and no ssx
+   (def qq-narb (name v)
      (let qname (list 'quote name)
        (casen (car v)
          quote (list 'quote (list name (cadr v)))
@@ -1081,7 +1087,7 @@
          splice-pls (list 'cons qname (cadr v))
          (err "WTF?" name v))))
    
-   (def expand-qq-rest (x n) ;version 1: no ssx, use case, use "is x 'dick" not "dick? x"
+   (def expand-qq-rest (x n)
      (if (atom x)
          (list 'quote x)
          (withs a (expand-qq (car x) n)
@@ -1108,7 +1114,7 @@
    (mac quasiquote (x)
      (expand-quasiquote x))
    
-   ;ohhhh my gooooooooooooood, this shit is amazingly slow
+   ;ohhhh my gooooooooooooood, this is amazingly slow
 ;arc> (time:ue '(let x 2 `(+ ,x 3)))
 ;time: 175 cpu: 175 gc: 2 mem: 1195624
 ;(+ 2 3)
@@ -1363,7 +1369,7 @@
              (if (and (cons? a)
                       #;(bound-to? (car a) compose-object)
                       #;(no (mem a env)) ;ssx would ignore...
-                      (is a 'compose))
+                      (is (car a) 'compose)) ;geez, fixing that takes a while...
                  (de-macro (xloop (a (cdr a) b b)
                              ;non-tail-rec way from decompose is easiest
                              (if (no a) ;composition of nothing shd be idfn
@@ -1400,6 +1406,7 @@
                        (in a '$ 'arc)
                        (cons a b)
                        (cons a (map [de-macro _ env] b)))))))))
+ 
    
    ;ssyntax-string? appears to be the big waster ;OR WAS
    
@@ -1485,13 +1492,12 @@
        `(let ,gsrc (make-mac (fn ,args ,@body))
           (let ,gexp (expand-macro ,gsrc)
             (save-code ',name ,gsrc)
-            (assign ,name ,gexp)))))
+            (assign ,name ,gexp))))))
+ 
+ 
+ part2
    
-   (prn "Expanding everything now")
-   
-   (expand-all the-order)
-   
-   
+   '(
    ;now, for a while, we will use this...
    (assign def-plain def)
    (assign mac-plain mac)
@@ -1501,7 +1507,19 @@
    (assign def xdef)
    (assign mac xmac)
    
-   (def mac-sp? (x)
+   ;reordered the below and the above, so that when def and mac are
+   ;reexpanded from source later, they have the "right" source
+   ;(I should define a "reassign" function or something, which also
+   ; alters the source code)
+   
+   (prn "Expanding everything now")
+   (expand-all the-order)
+   
+   )
+   
+ part3
+   
+   '((def mac-sp? (x)
      (or (macro? x) (special-object? x)))
    
    (def composeff (a b)
@@ -1575,7 +1593,7 @@
    (def dss-tail (x)
      (if (acons x)
          (cons (dss-head (car x)) (dss-tail (cdr x)))
-         (is-ssx x)
+         (ssx? x) ;was still is-ssx
          (ssx x)
          x))
    (assign dss dss-head)
@@ -1866,9 +1884,11 @@
            (next xs cdr.ss))))
    
    (def reexpand-all ()
-     (no:map reexpand-from-src source-code))
+     (no:map reexpand-from-src source-code)))
    
-   (assign fn fn-optional)
+ part4
+   
+   '((assign fn fn-optional)
      
    ;Guh.
    ;Takes .8 seconds to reexpand-all,
@@ -1908,6 +1928,11 @@
    
    (reexpand-all)
    
+   ;turn on ssyntax
+   (assign ssyntax? ssx?)
+   (assign ssexpand ssx)
+   )
+   
    ;... ... Ok, what next?
    ;I guess I had called for reading and files.
    ;Oh boy. Oh dear. Oh no. Jez'.
@@ -1925,4 +1950,9 @@
    ;optional arguments as a macro to replace fn.
      
    
-   ))
+   )
+
+(unless (and (bound 'theatrics) theatrics)
+  (map run (list part1 part2 part3 part4)))
+
+
