@@ -1,8 +1,8 @@
 #!/bin/sh
 
-if which -s racket
+if command -v racket >/dev/null
 then
-    if which -s rlwrap
+    if command -v rlwrap >/dev/null
     then rlwrap -cr -q "\"" -C arc racket -if arc3.1/as.scm
     else
         if (($# == 0))
