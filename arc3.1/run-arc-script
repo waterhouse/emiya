@@ -1,0 +1,5 @@
+#!/bin/bash
+arcdir=$(dirname $0)
+racket -e '(define norepl #t)' \
+-f $arcdir/as.scm \
+-e "(aload \"$@\")"

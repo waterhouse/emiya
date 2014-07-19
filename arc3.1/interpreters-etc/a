@@ -3,6 +3,17 @@
                    sig
                    (table)))
 
+(= warn-redef (make-dyn t))
+
+(= safeset (annotate 'mac
+             (fn (var val)
+               `(do (when (and (bound ',var)
+                               (warn-redef))
+                      (disp "*** redefining " (stderr))
+                      (disp ',var (stderr))
+                      (disp #\newline (stderr)))
+                  (assign ,var ,val)))))
+
 (= def (annotate 'mac
                  (fn (name parms . body)
                    `(do (sref signatures* ',parms ',name)
@@ -275,10 +286,10 @@
          (* 2147483647
             (big-rand (trunc n 2147483647))))))
 
-(redef sum (f a b)
-  (accumulate + f a 0 1+ [$.> _ b]))
+#;(redef sum (f a b)
+    (accumulate + f a 0 1+ [$.> _ b]))
 
-(def product (f a b)
+#;(def product (f a b)
   (accumulate * f a 1 inc [> _ b]))
 
 (def factorial (n)
@@ -570,6 +581,18 @@
       ;char (< x y)
       (< x y)
       )))
+;fuck that ;fuck that
+
+#;(redef before (x y)
+  (case type.x
+    cons (if (before car.x car.y)
+             t
+             (before car.y car.x)
+             nil
+             (before cdr.x cdr.y))
+    sym (and (isnt x y) (< x y))
+    (< x y)))
+  
 
 (def but-nth (n xs)
   (join (firstn n xs)
@@ -667,10 +690,18 @@
                   (lcm am bm)))
           (tuples 2 args)))
 
-(def gcd2 (a b)
+#;(def gcd2 (a b)
   (if (zero b)
       a
       (gcd2 b (mod a b))))
+;let's handle rational numbers
+;... negative? screw that
+;(builtin gcd indeed returns positives)
+(= int? ($:lambda (x) (if (integer? x) 't 'nil)))
+(def gcd2 (a b)
+  (if (and (int? a) (int? b))
+      ($.gcd a b)
+      (/ ($.gcd numer.a numer.b) ($.lcm denom.a denom.b))))
 
 (def gcd args
   (reduce gcd2 args))
@@ -1701,6 +1732,7 @@
 (def fffactor (n)
   (if (is n 1) nil
       (< n 0) (cons -1 fffactor:-.n)
+      (is n 0) nil
       (xloop (n n xs nil g 2)
         (if prime.n
             (nrev:cons n xs)
@@ -3400,6 +3432,11 @@
 (mac pipe-to (str . body)
   `(call-with-pipe-to ,str (fn () ,@body)))
 
+(def call-with-pipe-from (str thunk)
+  (let (stout stin pid sterr status-func) (process str)
+    (w/stdin stout
+      (thunk))))
+
 (mac to-clipboard body
   `(pipe-to "pbcopy" ,@body))
 
@@ -4435,3 +4472,118 @@
   (system "osascript -e 'tell application \"System Events\" to key up shift'"))
 (= KEY_UP_SHIFT UNPRESS_SHIFT)
 
+
+(def tuples-plus (n xs)
+  (let (x y) (split rev.xs (mod len.xs n))
+    (list (tuples n rev.y) rev.x)))
+
+;same as case except you eval the test-exprs
+(mac vcase (expr . clauses)
+  (let (pairs default) (tuples-plus 2 clauses)
+    (w/uniq gexpr
+      `(let ,gexpr ,expr
+         (if ,@(mappend (fn ((x y)) `((is ,gexpr ,x) ,y)) pairs)
+             ,@default)))))
+
+
+;this shit shoulda been defined a long time ago
+;... and now we translate it from ssx9 syntax, oh well
+(def match-expr (g bind val next-clause)
+  (if (and acons.bind (is car.bind 'unquote))
+      `(let ,cadr.bind ,g
+         ,val)
+      (match-expr-tail g bind val next-clause)))
+
+;... do we do unquote-splicing too?
+;feh, why not
+;... 'cause it's kinda hard
+;... also it ... wow... huh. interesting.
+;...
+;...
+;semi-enlightenment. allowing (bleh unquote nerf) to treat the unquote specially
+;[i.e. not distinguishing between match-expr and match-expr-tail]
+;is like unquote-splicing, except this only works at the end of a list.
+;allowing full unquote-splicing would involve seriously more sophistication.
+;[perhaps not too much more; could probably cons up an FSM]
+;meh, screw that for now.
+;-- eh, I can do rest args, at least.
+
+;btw, this syntax leaves open more avenues for expansion.
+;atm the x in ,x must be a symbol.
+;obv. we could do something like ,int?x -> ,(int? x) -> bind x
+; and test int? on it.
+(def match-expr-tail (g bind val next-clause)
+  (if (and acons.bind acons:car.bind (is caar.bind 'unquote-splicing))
+      (if no:cdr.bind
+          `(let ,cadar.bind ,g
+             ,val)
+          (err "match is currently not advanced enough to support ,@ except at list-tails" bind))
+      acons.bind
+      `(if (atom ,g)
+           ,next-clause
+           ,(w/uniq (gcar gcdr)
+              `(let ,gcar (car ,g)
+                 ,(match-expr gcar car.bind
+                              `(let ,gcdr (cdr ,g)
+                                 ,(match-expr-tail gcdr cdr.bind val next-clause))
+                              next-clause))))
+      `(if (is ,g ',bind)
+           ,val
+           ,next-clause)))
+
+(mac match (expr . cases)
+  (with gx (uniq) gfinal (uniq "df") ;default
+    (let (clauses last) (tuples-plus 2 cases)
+      (let last-clause `(fn () ,(if last car.last nil)) ;last is a list...
+        `(let ,gx ,expr
+           (let ,gfinal ,last-clause
+             ,(xloop (rcases rev.clauses
+                      next-clause `(,gfinal)) ;lel
+                (if no.rcases
+                    next-clause
+                    (next cdr.rcases
+                          (let (bind result) car.rcases
+                            (w/uniq gfail
+                              `(let ,gfail (fn () ,next-clause)
+                                 ,(match-expr gx bind result `(,gfail))))))))))))))
+
+(def join1 (xs x)
+  (join xs list.x))
+
+(mac match-strict (expr . cases)
+  (if (odd len.cases)
+      `(match ,expr ,@cases)
+      `(match ,expr
+         ,@(join1 cases
+                 `(err "Failed to match " ',expr
+                       "against any of:" ,@(map [list 'quote car._]
+                                                (tuples 2 cases)))))))
+
+(= bound? bound)
+
+(def Y (f) (fn args (apply (f (Y f)) args)))
+
+(def ac (x) ($.ac ($.ac-denil x) $.null))
+
+(def num? (x) ($ (if (number? x) 't 'nil)))
+
+(def map-index (f xs)
+  (xloop (xs xs ys nil n 0)
+    (if no.xs
+        rev.ys
+        (next cdr.xs (cons (f car.xs n) ys) inc.n))))
+
+
+;probably final form now
+(= sum (case-fn
+        (xs) (reduce + xs)
+        (f xs) (accumulate + f:car xs 0 cdr no)
+        (f a b) (accumulate + f a 0 1+ [> _ b])))
+
+;and this
+(= product (case-fn
+            (xs) (reduce * xs)
+            (f xs) (accumulate * f:car xs 1 cdr no)
+            (f a b) (accumulate * f a 1 1+ [> _ b])))
+  
+  

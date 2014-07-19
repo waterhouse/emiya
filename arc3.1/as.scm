@@ -20,7 +20,11 @@
   (aload "sh.arc") ;my stuff
   
   (aload "spider.arc") ;temporary
+  
+  (aload "ssx9.arc") ;hah, above is not temporary, oh well
+  (aload "dppr14.arc") ;is useful
   )
 
-(tl)
+(unless (namespace-variable-value 'norepl #t (lambda () #f))
+  (tl))
 

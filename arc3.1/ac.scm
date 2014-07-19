@@ -51,6 +51,10 @@
         ((symbol? s) (ac-var-ref s env))
         ((ssyntax? (xcar s)) (ac (cons (expand-ssyntax (car s)) (cdr s)) env))
         ((eq? (xcar s) '$) (cadr s));###HACK###
+        ((eq? (xcar s) 'compile-time-dlet) ;###HACK###, lel
+         (parameterize (((eval (ac (cadr s) env))
+                         (eval (ac (caddr s) env))))
+           (cons 'begin (ac-body* (cdddr s) env))))
         ((eq? (xcar s) 'quote) (list 'quote (ac-niltree (cadr s))))
         ((eq? (xcar s) 'quasiquote) (ac-qq (cadr s) env))
         ((eq? (xcar s) 'if) (ac-if (cdr s) env))
@@ -64,7 +68,8 @@
          (ac (list 'no (cons (cadar s) (cdr s))) env))
         ((eq? (xcar (xcar s)) 'andf) (ac-andf s env))
         ((pair? s) (ac-call (car s) (cdr s) env))
-        (#t (err "Bad object in expression" s))))
+        (#t #;(err "Bad object in expression" s)
+            s))) ;###CHANGE, enable more fucking around
                    
 
 (define atstrings #f)
@@ -257,7 +262,10 @@
 ; depth of nesting. handle unquote only at top level (level = 1).
 ; complete form, e.g. x or (fn x) or (unquote (fn x))
 
-(define (ac-qq1 level x env)
+; YOU FUCKUP, (do (= xs range.3) ``(meh ,@(nerf ,xs))) -> error,
+; because that xs doesn't get ac'd or whatever.
+
+#;(define (ac-qq1 level x env)
   (cond ((= level 0)
          (ac x env))
         ((and (pair? x) (eqv? (car x) 'unquote))
@@ -265,6 +273,23 @@
         ((and (pair? x) (eqv? (car x) 'unquote-splicing) (= level 1))
          (list 'unquote-splicing
                (list 'ar-nil-terminate (ac-qq1 (- level 1) (cadr x) env))))
+        ((and (pair? x) (eqv? (car x) 'quasiquote))
+         (list 'quasiquote (ac-qq1 (+ level 1) (cadr x) env)))
+        ((pair? x)
+         (imap (lambda (x) (ac-qq1 level x env)) x))
+        (#t x)))
+
+(define (ac-qq1 level x env)
+  (cond ((= level 0)
+         (ac x env))
+        ((and (pair? x) (eqv? (car x) 'unquote))
+         (list 'unquote (ac-qq1 (- level 1) (cadr x) env)))
+        ((and (pair? x) (eqv? (car x) 'unquote-splicing))
+         (if (= level 1)
+             (list 'unquote-splicing
+                   (list 'ar-nil-terminate (ac-qq1 (- level 1) (cadr x) env)))
+             (list 'unquote-splicing
+                   (ac-qq1 (- level 1) (cadr x) env))))
         ((and (pair? x) (eqv? (car x) 'quasiquote))
          (list 'quasiquote (ac-qq1 (+ level 1) (cadr x) env)))
         ((pair? x)
@@ -680,6 +705,10 @@
 ;       ((or (number? fn) (symbol? fn)) fn)
 ; another possibility: constant in functional pos means it gets 
 ; passed to the first arg, i.e. ('kids item) means (item 'kids).
+        ((vector? fn)
+         (vector-ref fn (car args))) ;###CHANGE###
+        ((struct? fn)
+         (struct-ref fn (car args))) ;###MOAR
         (#t (err "Function call on inappropriate object" fn args))))
 
 (xdef apply (lambda (fn . args)
@@ -709,6 +738,8 @@
          (string-ref fn arg1))
         ((hash-table? fn) 
          (ar-nill (hash-table-get fn arg1 #f)))
+        ((vector? fn) (vector-ref fn arg1)) ;###CHANGE###
+        ((struct? fn) (struct-ref fn arg1)) ;###MOAR
         (#t (ar-apply fn (list arg1)))))
 
 (define (ar-funcall2 fn arg1 arg2)
@@ -725,6 +756,40 @@
   (if (procedure? fn)
       (fn arg1 arg2 arg3 arg4)
       (ar-apply fn (list arg1 arg2 arg3 arg4))))
+
+;struct ref stuff.
+(define struct-ref-table (make-hash-table))
+;--oh man.
+;so the thing should just basically be
+;(symbol-value:symb struct-name.x "-" field-name)
+;which can be memoized in a table. roighto.
+;i should be the name of a struct field, perhaps an
+;integer as well.
+(define (struct-ref s i)
+  (let*-values (((tp iga) (struct-info s))
+                ;actually we can use tp as an index
+                ((u) (hash-table-get struct-ref-table tp #f)))
+    (if u
+        (let ((f (hash-table-get u i #f)))
+          (if f
+              (f s)
+              (let-values (((name igb igc igd ige igf igg igh)
+                            (struct-type-info tp)))
+                (hash-table-put! u i (namespace-variable-value
+                                (string->symbol
+                                 (string-append
+                                  (symbol->string name)
+                                  "-"
+                                  (symbol->string i)))))
+                (struct-ref s i))))
+        (begin (hash-table-put! struct-ref-table tp
+                          (make-hash-table))
+               (struct-ref s i)))))
+;accualy is mostly thread-safe
+;[max O(# threads) times you have the second table replaced
+; with an empty table, after which a bit of work must be dup'd]
+
+
 
 ; replace the nil at the end of a list with a '()
 
@@ -873,6 +938,7 @@
              (cond ((string? x) (string-length x))
                    ((hash-table? x) (hash-table-count x))
                    ;(#t (length (ar-nil-terminate x)))))) ;###EGAD that's horrible
+                   ((vector? x) (vector-length x)) ;###CHANGE###
                    (#t (ar-length x)))))
 
 (define (ar-length x) ;###added to make things not terrible
@@ -882,7 +948,9 @@
         (loop (cdr x) (unsafe-fx+ n 1)))))
 
 (define (ar-tagged? x)
-  (and (vector? x) (eq? (vector-ref x 0) 'tagged)))
+  (and (vector? x)
+       (> (vector-length x) 0) ;###change###
+       (eq? (vector-ref x 0) 'tagged)))
 
 (define (ar-tag type rep)
   (cond ((eqv? (ar-type rep) type) rep)
@@ -905,6 +973,7 @@
         ((exint? x)         'int)
         ((number? x)        'num)     ; unsure about this
         ((hash-table? x)    'table)
+        ((vector? x)        'vec) ;###change###
         ((output-port? x)   'output)
         ((input-port? x)    'input)
         ((tcp-listener? x)  'socket)
@@ -924,9 +993,12 @@
 
 (define ar-gensym-count 0)
 
-(define (ar-gensym)
-  (set! ar-gensym-count (+ ar-gensym-count 1))
-  (string->symbol (string-append "gs" (number->string ar-gensym-count))))
+;### allow a user-specified name, defaulting to "gs"
+(define ar-gensym
+  (case-lambda
+    (() (ar-gensym "gs"))
+    ((s) (set! ar-gensym-count (+ ar-gensym-count 1))
+         (string->symbol (string-append s (number->string ar-gensym-count))))))
 
 (xdef uniq ar-gensym)
 
@@ -963,6 +1035,13 @@
 (xdef call-w/stderr        ;###NOOB why wasn't this here?###
       (lambda (port thunk)
         (parameterize ((current-error-port port)) (thunk))))
+
+;### dynamic variables, they're useful
+(xdef call/dyn
+      (lambda (d v thunk)
+        (parameterize ((d v))
+          (thunk))))
+(xdef make-dyn make-parameter)
 
 (xdef readc (lambda str
               (let ((c (read-char (if (pair? str)
@@ -1057,9 +1136,11 @@
                       ((string)  (apply string-append
                                         (map (lambda (y) (ar-coerce y 'string)) 
                                              (ar-nil-terminate x))))
+                      ((vec)     (list->vector (ar-nil-terminate x)))
                       (else      (err "Can't coerce" x type))))
     ((eqv? x 'nil)  (case type
                       ((string)  "")
+                      ((vec)     (vector))
                       (else      (err "Can't coerce" x type))))
     ((null? x)      (case type
                       ((string)  "")
@@ -1067,9 +1148,14 @@
     ((symbol? x)    (case type 
                       ((string)  (symbol->string x))
                       (else      (err "Can't coerce" x type))))
+    ((vector? x)    (case type
+                      ((cons)    (append (vector->list x) 'nil))
+                      (else      (err "Can't coerce" x type))))
     (#t             x)))
 
 (xdef coerce ar-coerce)
+                      
+                      
 
 (xdef open-socket  (lambda (num) (tcp-listen num 50 #t))) 
 
@@ -1398,11 +1484,38 @@
                                   (hash-table-put! com ind val)))
           ((string? com) (string-set! com ind val))
           ((pair? com)   (nth-set! com ind val))
+          ((vector? com) (vector-set! com ind val))
+          ((struct? com) (struct-set! com ind val))
           (#t (err "Can't set reference " com ind val)))
     val))
 
 (define (nth-set! lst n val)
   (x-set-car! (list-tail lst n) val))
+
+(define struct-set-table (make-hash-table))
+;manual memoization again
+(define (struct-set! s i v)
+  (let*-values (((tp iga) (struct-info s))
+                ((u) (hash-table-get struct-set-table tp #f)))
+    (if u
+        (let ((f (hash-table-get u i #f)))
+          (if f
+              (f s v)
+              (let-values (((name igb igc igd ige igf igg igh)
+                            (struct-type-info tp)))
+                (hash-table-put! u i (namespace-variable-value
+                                (string->symbol
+                                 (string-append
+                                  "set-"
+                                  (symbol->string name)
+                                  "-"
+                                  (symbol->string i)
+                                  "!"))))
+                (struct-set! s i))))
+        (begin (hash-table-put! struct-set-table tp
+                          (make-hash-table))
+               (struct-set! s i)))))
+
 
 ; rewrite to pass a (true) gensym instead of #f in case var bound to #f
 
@@ -1526,7 +1639,7 @@
                     ((explicit-flush) (set! explicit-flush flag)))
                   val)))
 
-(putenv "TZ" ":GMT")
+;(putenv "TZ" ":GMT") ;### I don't need you
 
 (define (gmt-date sec) (seconds->date sec))
 
