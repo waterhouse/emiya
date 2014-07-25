@@ -793,10 +793,12 @@
 
 ; replace the nil at the end of a list with a '()
 
+; ### if l is not a proper list, we don't need to err; our only
+; job here is to replace nil with '()
 (define (ar-nil-terminate l)
-  (if (or (eqv? l '()) (eqv? l 'nil))
-      '()
-      (cons (car l) (ar-nil-terminate (cdr l)))))
+  (cond ((eqv? l 'nil) '())
+        ((not (pair? l)) l)
+        (#t (cons (car l) (ar-nil-terminate (cdr l))))))
 
 ; turn the arguments to Arc apply into a list.
 ; if you call (apply fn 1 2 '(3 4))
