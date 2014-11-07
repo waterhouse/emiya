@@ -536,7 +536,7 @@
            (list str))))
 
 
-(mac dbg (x)
+#;(mac dbg (x) ;superseded
   `(do (prs ',x "is ")
        (prn ,x)))
 
@@ -3735,7 +3735,70 @@
 (def get-ffi-obj (name lib type)
   ($.c-get-ffi-obj name lib type))
 
-(= c-types
+;Now I've basically settled on a location and implementation
+;of the asm library.
+;... Ok, let's build it for the user if they don't have it yet.
+;(General note: Windows has a different C calling convention,
+; so asm code is pretty incompatible and not worth trying atm.)
+(withs (base (string src-directory "../c-lib/racket-asm-lib")
+        lib ($.path->string
+             ($.path-add-suffix base $.system-type!so-suffix))
+        source (string base ".c"))
+  (unless file-exists.lib
+    (system:string "gcc "
+                   (case $.system-type!os
+                     macosx "-dynamiclib "
+                     unix (string "-shared -fPIC "
+                                  ;And, it turns out, on Linux, I need
+                                  ;for some mind-boggling reason to do
+                                  ;the following to get RTLD_DEFAULT
+                                  ;to get defined by dlfcn.h:
+                                  "-D_GNU_SOURCE "))
+                   "-o '" lib "' '" source "'"))
+  (= asm-lib errsafe:ffi-lib.lib))
+
+;So that contains a bunch of C functions that I can use to
+;call byte-arrays of machine code.
+;Unfortunately, I can't just use, e.g., one global "call2" function
+;that applies a byte-array to two arguments.
+;Racket demands that the C functions you import be given precise
+;type information.  If I want to call a C function on two integers,
+;and call the same function on two byte strings, I have to use two
+;separate importations of the same C function into Racket, annotated
+;respectively as functions of integers and of byte strings.
+;I can at least be clever by importing an asm function as an Arc
+;function that finds out what types it's being passed, then generates
+;a Racket importation of the "call[n]" function annotated with the
+;correct types.
+
+(= asm-code-magic-number #xfffefafd
+   asm-dir (string src-directory "../asm"))
+(def compile-asm (name)
+  (withs (base (string asm-dir "/" name))
+    (system:string
+     "cd " asm-dir "; " ;so that %include is in right dir
+     "nasm -f macho64 "
+     ;now let's give it some info
+     (case $.system-type!os
+       macosx "-DDARWIN "
+       unix "-DUNIX "
+       "") ;alternative would probably be Windows
+     "-o " name ".o "
+     name ".asm")
+    (fromfile (string base ".o")
+      (let n 0
+        (while (isnt n asm-code-magic-number)
+          (= n (bit-or (ash (or (readb) (err "No magic number?" name)) 24)
+                       (ash n -8)))))
+      (tofile (string base ".code")
+        (whilet n (readb)
+          writeb.n)))
+    (string base ".code")))
+(def get-asm (name)
+  (let u (compile-asm name)
+    (= symbol-value:symb.name ($.file->bytes u))))
+
+(= c-type-table
    (obj uint64 $.c-_uint64
         u64 $.c-_uint64
         uint $.c-_uint64
@@ -3747,78 +3810,63 @@
         int8 $.c-_int8
         uint8 $.c-_uint8
         string $.c-_string
+        bytes $.c-_bytes
         ))
 
-(def cprocedure (arglist (o res $.c-_int64))
-  ($.c-_cprocedure (apply $.list
-                          (map [or c-types._ _] arglist))
-                   (or c-types.res res)))
-
-(= loaded-run-code nil)
-;look in c-lib for run-code, copy (symb link doesn't work for some reason)
-
-;new api from terrible-run-code: use get_file, returns an integer that
-;is a pointer in memory to the executable mmap of the file.
-;then find ways to run each thing.
-;... do that at some point.
-(def load-run-code ((o file (home "run-code")))
-  (if loaded-run-code
-      (err "Hahahah, go try to figure out how to un-load or otherwise overwrite a foreign library!  Hahahaha!")
-      (do ;(eval '($ (require (prefix-in c- ffi/unsafe)))) ;sigh; "require not at top level" ;fuck it
-        (eval (list 'do
-                    `(= run-code-lib (ffi-lib ,file))
-                    '(for i 0 6
-                       (= (symbol-value:symb 'call i)
-                          (get-ffi-obj (string "forcibly_call" i)
-                                       run-code-lib
-                                       ($.c-_cprocedure (apply $.list $.c-_bytes
-                                                               (n-of i $.c-_uint64))
-                                                        $.c-_uint64))))))
-        (= loaded-run-code t))))
-(= asm-code-magic-number #xfffefafd
-   asm-dir (home "Dropbox/asm"))
-(def compile-asm (name)
-  (withs (base (string asm-dir "/" name))
-    (system:string "nasm -f macho64 -o "
-                   base ".o "
-                   base ".asm")
-    (fromfile (string base ".o")
-      (let n 0
-        (while (isnt n asm-code-magic-number)
-          (= n (bit-or (ash (or (readb) (err "No magic number?" name)) 24)
-                       (ash n -8)))))
-      (tofile (string base ".code")
-        (whilet n (readb)
-          writeb.n)))
-    (string base ".code")))
-(def get-asm (name)
-  (unless loaded-run-code (load-run-code))
-  (let u (compile-asm name)
-    (= symbol-value:symb.name ($.file->bytes u))))
 (def corresponding-c-type (x)
   (if ($.bytes? x) $.c-_bytes
       (isa x 'int) $.c-_uint64
       (isa x 'string) $.c-_string/ucs-4
       (err "What is the c-type of this?" x)))
-(mac ga (x (o n)) ;note n args => n+1 actually passed, because first is code
-  `(errsafe ;to avoid erring when people load things on unprepared computers
-  ,(if n
-      `(do (get-asm ',x)
-         ,(let arglist (mapn [symb 'x _] 0 n)
-            `(= ,(symb x '-thing)
-                (let f nil
-                  (fn ,arglist
-                    (unless f
-                      (= f ($ (c-get-ffi-obj
-                               ,(string "forcibly_call" n)
-                               _run-code-lib
-                               (c-_cprocedure
-                                (_apply list
-                                        (_map _corresponding-c-type (list ,@arglist)))
-                                c-_uint64)))
-                         ,(symb x '-thing) f))
-                    (f ,@arglist))))))
-      `($.bytes-length (get-asm ',x)))))
+
+(def cprocedure (arglist (o res $.c-_int64))
+  ($.c-_cprocedure (apply $.list
+                          (map [or c-type-table._ _] arglist))
+                   (or c-type-table.res res)))
+
+(def c-types args
+  (apply $.list (map corresponding-c-type args)))
+
+;So I provide two ways to call asm code.
+;One is to directly jump to the Racket byte-buffer.  This is preferred.
+;Unfortunately, Racket's heap having PROT_EXEC turned on seems not to
+;be a guaranteed feature, and is in fact not the case on Linux.
+;The second way, therefore, is to mmap some executable memory, copy the
+;asm code into it, and jump to it.
+;This second way also copies the executable buffer back into the Racket
+;buffer.  This provides approximately the same API as the first way
+;(if the code uses global variables, you can inspect them in the buffer
+; afterwards).  waterhouse doesn't currently make use of this, but
+;someone might in the future, and in the meantime he hates being
+;overruled by a computer.
+;Anyway, we will support both approaches.  The first is called "raw",
+;the second is the default.
+
+(mac ga (x (o n) (o raw))
+  (let xargs (mapn [symb 'x _] 1 n)
+    `(errsafe:do ;for when people load things on unprepared computers
+      (get-asm ',x)
+      ,(if n
+           `(= ,(symb x '-thing)
+               (let f nil
+                 (fn (code ,@xargs)
+                   (unless f
+                     (= f ($.c-get-ffi-obj
+                           ,(string (if raw "raw_call" "call") n)
+                           asm-lib
+                           ($.c-_cprocedure
+                            (c-types code
+                                     ,@(if raw '() '(0))
+                                     ,@xargs)
+                            $.c-_uint64)))
+                     ,@(if raw `(= (symb x '-thing) f)))
+                   (f code
+                      ,@(if raw '() '(bytes-length.code))
+                      ,@xargs))))
+           `(bytes-length ',x)))))
+
+(mac call-asm (f . args)
+  `(,(symb f '-thing) ,f ,@args))
 
 (= bytes-length $.bytes-length
    make-bytes $.make-bytes
@@ -4585,5 +4633,42 @@
             (xs) (reduce * xs)
             (f xs) (accumulate * f:car xs 1 cdr no)
             (f a b) (accumulate * f a 1 1+ [> _ b])))
-  
-  
+
+(mac d (x) (no:dpprn definitions*.x)) ;useful
+
+(mac dlet (x val . body)
+  `(call/dyn ,x ,val (fn () ,@body)))
+
+;Debugging shit
+(= brx-n 0
+   brx-table (table))
+(mac brx (expr)
+  (let (name . rest) expr
+    (let u ++.brx-n
+      (= brx-table.u expr)
+      `(do (prsn ',(symb name u) 'enter)
+         (do1 ,expr
+              (prsn ',(symb name u) 'ret))))))
+
+(mac dbg (expr)
+  (let (name . rest) expr
+    (let u ++.brx-n
+      (= brx-table.u expr)
+      (with args (map [uniq] rest)
+        gexpr (uniq)
+        `(withs ,gexpr ,expr
+           ,@(interleave args rest)
+           (prsn ',(symb expr u) ,@args)
+           (do1 (,gexpr ,@args)
+                (prsn ',(symb expr u) 'ret)))))))
+
+(= bytes-load ($ bytevector-s64-native-ref)
+   bytes-store ($ bytevector-s64-native-set!))
+
+(defmemo handle-and-dlsym ()
+  (let u make-bytes.16
+    ((get-ffi-obj "install_handle_and_dlsym"
+                  asm-lib
+                  (cprocedure '(bytes)))
+     u)
+    u))
