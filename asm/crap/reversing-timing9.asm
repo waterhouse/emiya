@@ -342,7 +342,7 @@ thing:  db "flips: %ld moved: %ld mbytes: %ld tbytes: %ld trace-ops: %ld alloc: 
 thing2: db "alloc: %ld", 10, 0
 thing3: db "traced-count: %ld gc-cycles: %ld overflow-count: %ld stacked-count: %ld", 10, 0
 thing4: db "cons-min: %ld cons-max: %ld rev-min: %ld rev-max: %ld", 10, 0
-thing5: db "time: %ld cycles: %ld cycles/1000sec: %ld", 10, 0
+thing5: db "time: %ld cycles: %ld cycles/usec: %ld", 10, 0
 whatever:       db "nerf", 10, 0
 dick:   db "achtung %ld", 10, 0
         
