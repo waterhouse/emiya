@@ -1,0 +1,1282 @@
+Addressing: default, addresses are 64b, with 67 prefix, they are 32b.
+"It also changes the size of the RCX register for intsructions that use RCX implicitly."
+
+
+Instructions with default size 64 bits:
+
+call near
+enter
+jxx
+jrcxz
+jmp near
+leave
+lgdt
+lidt
+lldt
+loop
+loopxx
+ltr
+mov cr(n)
+mov dr(n)
+pop reg/mem
+pop reg
+pop fs
+pop gs
+popfq
+push imm8
+push imm32
+push reg/mem
+push reg
+push fs
+push gs
+pushfq
+ret near
+
+
+
+
+REX prefix byte:
+7-4: 0100 ("4")
+3: REX.W: operand size
+2: REX.R: fourth bit of ModRM reg field
+1: REX.X: fourth bit of SIB index field...
+0: REX.B: fourth bit of ModRM r/m field, SIB base field, or opcode reg field...
+
+
+
+Instruction sigs:
+adc:
+al i8 . 14 ib
+ax i16 . 15 iw
+eax i32 . 15 id
+rax i32 . 15 id
+rm8 i8 . 80 /2 ib
+rm16 i16 . 81 /2 iw
+rm32 i32 . 81 /2 id
+rm64 i32 . 81 /2 id
+rm16 i8 . 83 /2 ib
+rm32 i8 . 83 /2 ib
+rm64 i8 . 83 /2 ib
+rm8 r8 . 10 /r
+rm16 r16 . 11 /r
+rm32 r32 . 11 /r
+rm64 r64 . 11 /r
+r8 rm8 . 12 /r
+r16 rm16 . 13 /r
+r32 rm32 . 13 /r
+r64 rm64 . 13 /r
+
+add:
+al i8 . 04 ib
+ax i16 . 05 iw
+eax i32 . 05 id
+rax i32 . 05 id
+r8 i8 . 80 /0 ib
+r16 i16 . 81 /0 iw
+r32 i32 . 81 /0 id
+r64 i32 . 81 /0 id
+r16 i8 . 83 /0 ib
+r32 i8 . 83 /0 ib
+r64 i8 . 83 /0 ib
+rm8 r8 . 00 /r
+rm16 r16 . 01 /r
+rm32 r32 . 01 /r
+rm64 r64 . 01 /r
+r8 rm8 . 02 /r
+r16 rm16 . 03 /r
+r32 rm32 . 03 /r
+r64 rm64 . 03 /r
+
+and:
+al i8 . 24 ib
+ax i16 . 25 iw
+eax i32 . 25 id
+rax i32 . 25 id
+rm8 i8 . 80 /4 ib
+rm16 i16 . 81 /4 iw
+rm32 i32 . 81 /4 id
+rm64 i32 . 81 /4 id
+rm16 i8 . 83 /4 ib
+rm32 i8 . 83 /4 ib
+rm64 i8 . 83 /4 ib
+rm8 r8 . 20 /r
+rm16 r16 . 21 /r
+rm32 r32 . 21 /r
+rm64 r64 . 21 /r
+r8 rm8 . 22 /r
+r16 rm16 . 23 /r
+r32 rm32 . 23 /r
+r64 rm64 . 23 /r
+
+bsf:
+r16 rm16 . 0F BC /r
+r32 rm32 . 0F BC /r
+r64 rm64 . 0F BC /r
+
+bsr:
+r16 rm16 . 0F BD /r
+r32 rm32 . 0F BD /r
+r64 rm64 . 0F BD /r
+
+bswap:
+r32 . 0F C8 +rd
+r64 . 0F C8 +rq
+
+bt:
+rm16 r16 . 0F A3 /r
+rm32 r32 . 0F A3 /r
+rm64 r64 . 0F A3 /r
+rm16 i8 . 0F BA /4 ib
+rm32 i8 . 0F BA /4 ib
+rm64 i8 . 0F BA /4 ib
+
+btc:
+rm16 r16 . 0F BB /r
+rm32 r32 . 0F BB /r
+rm64 r64 . 0F BB /r
+rm16 i8 . 0F BA /7 ib
+rm32 i8 . 0F BA /7 ib
+rm64 i8 . 0F BA /7 ib
+
+btr:
+rm16 r16 . 0F B3 /r
+rm32 r32 . 0F B3 /r
+rm64 r64 . 0F B3 /r
+rm16 i8 . 0F BA /6 ib
+rm32 i8 . 0F BA /6 ib
+rm64 i8 . 0F BA /6 ib
+
+bts:
+rm16 r16 . 0F AB /r
+rm32 r32 . 0F AB /r
+rm64 r64 . 0F AB /r
+rm16 i8 . 0F BA /5 ib
+rm32 i8 . 0F BA /5 ib
+rm64 i8 . 0F BA /5 ib
+
+call near:
+rel16off . E8 iw
+rel32off . E8 id
+rm16 . FF /2
+rm32 . FF /2
+rm64 . FF /2
+
+call far:
+mem16:16 . FF /3
+mem16:32 . FF /3
+
+cwd, cdq, cqo: ;needs dickass
+. 99
+
+clc:
+. F8
+
+cld:
+. FC
+
+clflush:
+m8 . 0F AE /7
+
+cmc:
+. F5
+
+cmovo:
+r16 rm16 . 0F 40 /r
+r32 rm32 . 0F 40 /r
+r64 rm64 . 0F 40 /r
+
+cmovno:
+r16 rm16 . 0F 41 /r
+r32 rm32 . 0F 41 /r
+r64 rm64 . 0F 41 /r
+
+cmovb:
+r16 rm16 . 0F 42 /r
+r32 rm32 . 0F 42 /r
+r64 rm64 . 0F 42 /r
+
+cmovc:
+r16 rm16 . 0F 42 /r
+r32 rm32 . 0F 42 /r
+r64 rm64 . 0F 42 /r
+
+cmovnae:
+r16 rm16 . 0F 42 /r
+r32 rm32 . 0F 42 /r
+r64 rm64 . 0F 42 /r
+
+cmovnb:
+r16 rm16 . 0F 43 /r
+r32 rm32 . 0F 43 /r
+r64 rm64 . 0F 43 /r
+
+cmovnc:
+r16 rm16 . 0F 43 /r
+r32 rm32 . 0F 43 /r
+r64 rm64 . 0F 43 /r
+
+cmovae:
+r16 rm16 . 0F 43 /r
+r32 rm32 . 0F 43 /r
+r64 rm64 . 0F 43 /r
+
+cmovz:
+r16 rm16 . 0F 44 /r
+r32 rm32 . 0F 44 /r
+r64 rm64 . 0F 44 /r
+
+cmove:
+r16 rm16 . 0F 44 /r
+r32 rm32 . 0F 44 /r
+r64 rm64 . 0F 44 /r
+
+cmovnz:
+r16 rm16 . 0F 45 /r
+r32 rm32 . 0F 45 /r
+r64 rm64 . 0F 45 /r
+
+cmovne:
+r16 rm16 . 0F 45 /r
+r32 rm32 . 0F 45 /r
+r64 rm64 . 0F 45 /r
+
+cmovbe:
+r16 rm16 . 0F 46 /r
+r32 rm32 . 0F 46 /r
+r64 rm64 . 0F 46 /r
+
+cmovna:
+r16 rm16 . 0F 46 /r
+r32 rm32 . 0F 46 /r
+r64 rm64 . 0F 46 /r
+
+cmovnbe:
+r16 rm16 . 0F 47 /r
+r32 rm32 . 0F 47 /r
+r64 rm64 . 0F 47 /r
+
+cmova:
+r16 rm16 . 0F 47 /r
+r32 rm32 . 0F 47 /r
+r64 rm64 . 0F 47 /r
+
+cmovs:
+r16 rm16 . 0F 48 /r
+r32 rm32 . 0F 48 /r
+r64 rm64 . 0F 48 /r
+
+cmovns:
+r16 rm16 . 0F 49 /r
+r32 rm32 . 0F 49 /r
+r64 rm64 . 0F 49 /r
+
+cmovp:
+r16 rm16 . 0F 4A /r
+r32 rm32 . 0F 4A /r
+r64 rm64 . 0F 4A /r
+
+cmovpe:
+r16 rm16 . 0F 4A /r
+r32 rm32 . 0F 4A /r
+r64 rm64 . 0F 4A /r
+
+cmovnp:
+r16 rm16 . 0F 4B /r
+r32 rm32 . 0F 4B /r
+r64 rm64 . 0F 4B /r
+
+cmovpo:
+r16 rm16 . 0F 4B /r
+r32 rm32 . 0F 4B /r
+r64 rm64 . 0F 4B /r
+
+cmovl:
+r16 rm16 . 0F 4C /r
+r32 rm32 . 0F 4C /r
+r64 rm64 . 0F 4C /r
+
+cmovnge:
+r16 rm16 . 0F 4C /r
+r32 rm32 . 0F 4C /r
+r64 rm64 . 0F 4C /r
+
+cmovnl:
+r16 rm16 . 0F 4D /r
+r32 rm32 . 0F 4D /r
+r64 rm64 . 0F 4D /r
+
+cmovge:
+r16 rm16 . 0F 4D /r
+r32 rm32 . 0F 4D /r
+r64 rm64 . 0F 4D /r
+
+cmovle:
+r16 rm16 . 0F 4E /r
+r32 rm32 . 0F 4E /r
+r64 rm64 . 0F 4E /r
+
+cmovng:
+r16 rm16 . 0F 4E /r
+r32 rm32 . 0F 4E /r
+r64 rm64 . 0F 4E /r
+
+cmovnle:
+r16 rm16 . 0F 4F /r
+r32 rm32 . 0F 4F /r
+r64 rm64 . 0F 4F /r
+
+cmovg:
+r16 rm16 . 0F 4F /r
+r32 rm32 . 0F 4F /r
+r64 rm64 . 0F 4F /r
+
+cmp:
+al i8 . 3C ib
+ax i16 . 3D iw
+eax i32 . 3D id
+rax i32 . 3D id
+rm8 i8 . 80 /7 ib
+rm16 i16 . 81 /7 iw
+rm32 i32 . 81 /7 id
+rm64 i32 . 81 /7 id
+rm16 i8 . 83 /7 ib
+rm32 i8 . 83 /7 ib
+rm64 i8 . 83 /7 ib
+rm8 r8 . 38 /r
+rm16 r16 . 39 /r
+rm32 r32 . 39 /r
+rm64 r64 . 39 /r
+r8 rm8 . 3A /r
+r16 rm16 . 3B /r
+r32 rm32 . 3B /r
+r64 rm64 . 3B /r
+
+cpuid:
+. 0F A2
+
+dec: ;apparently the "48" versions are unavailable in 64bit mode due to conflict with REX prefixes
+rm8 . FE /1
+rm16 . FF /1
+rm32 . FF /1
+rm64 . FF /1
+;r16 . 48 +rw
+;r32 . 48 +rd
+
+div:
+rm8 . F6 /6
+rm16 . F7 /6
+rm32 . F7 /6
+rm64 . F7 /6
+
+enter:
+i16 0 . C8 iw 00
+i16 1 . C8 iw 01
+i16 i8 . C8 iw ib
+
+imul:
+rm8 . F6 /5
+rm16 . F7 /5
+rm32 . F7 /5
+rm64 . F7 /5
+r16 rm16 . 0F AF /r
+r32 rm32 . 0F AF /r
+r64 rm64 . 0F AF /r
+r16 rm16 i8 . 6B /r ib
+r32 rm32 i8 . 6B /r ib
+r64 rm64 i8 . 6B /r ib
+r16 rm16 i16 . 69 /r iw
+r32 rm32 i32 . 69 /r id
+r64 rm64 i32 . 69 /r id
+
+in:
+al i8 . E4 ib
+ax i8 . E5 ib
+eax i8 . E5 ib
+al dx . EC
+ax dx . ED
+eax dx . ED
+
+inc:
+rm8 . FE /0
+rm16 . FF /0
+rm32 . FF /0
+rm64 . FF /0
+;r16 . 40 +rw
+;r32 . 40 +rd
+
+ins:
+m8 dx . 6C
+m16 dx . 6D
+m32 dx . 6D
+
+insb:
+. 6C
+
+insw:
+. 6D
+
+insd:
+. 6D
+
+int:
+i8 . CD ib
+
+jo:
+rel8off . 70 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jno:
+rel8off . 71 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jb:
+rel8off . 72 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jc:
+rel8off . 72 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jnae:
+rel8off . 72 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jnb:
+rel8off . 73 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jnc:
+rel8off . 73 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jae:
+rel8off . 73 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jz:
+rel8off . 74 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+je:
+rel8off . 74 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jnz:
+rel8off . 75 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jne:
+rel8off . 75 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jbe:
+rel8off . 76 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jna:
+rel8off . 76 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jnbe:
+rel8off . 77 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+ja:
+rel8off . 77 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+js:
+rel8off . 78 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jns:
+rel8off . 79 cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jp:
+rel8off . 7A cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jpe:
+rel8off . 7A cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jnp:
+rel8off . 7B cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jpo:
+rel8off . 7B cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jl:
+rel8off . 7C cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jnge:
+rel8off . 7C cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jnl:
+rel8off . 7D cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jge:
+rel8off . 7D cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jle:
+rel8off . 7E cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jng:
+rel8off . 7E cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jnle:
+rel8off . 7F cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jg:
+rel8off . 7F cb
+rel16off . 0F 816 cw
+rel32off . 0F 832 cd
+
+jcxz: ;NOT USABLE AT ALL
+rel8off . E3 cb
+
+jecxz:
+rel8off . E3 cb
+
+jrcxz:
+rel8off . E3 cb
+
+jmp near:
+rel8off . EB cb
+rel16off . E9 cw
+rel32off . E9 cd
+rm16 . FF /4
+rm32 . FF /4
+rm64 . FF /4
+
+jmp far:
+mem16:16 . FF /5
+mem16:32 . FF /5
+
+lahf:
+. 9F
+
+lfs:
+r16 m16:16 . 0F B4 /r
+r32 m16:32 . 0F B4 /r
+
+lgs:
+r16 m16:16 . 0F B5 /r
+r32 m16:32 . 0F B5 /r
+
+lss:
+r16 m16:16 . 0F B2 /r
+r32 m16:32 . 0F B2 /r
+
+lea:
+rm16 mem . 8D /r
+rm32 mem . 8D /r
+rm64 mem . 8D /r
+
+leave: ;some funky crap with apparently identical opcodes... probably operand size override
+. C9
+
+lfence:
+. 0F AE E8
+
+lods:
+m8 . AC
+m16 . AD
+m32 . AD
+m64 . AD
+
+lodsb:
+. AC
+
+lodsw:
+. AD
+
+lodsd:
+. AD
+
+lodsq:
+. AD
+
+loop:
+rel8off . E2 cb
+
+loope:
+rel8off . E1 cb
+
+loopne:
+rel8off . E0 cb
+
+loopnz:
+rel8off . E0 cb
+
+loopz:
+rel8off . E1 cb
+
+lzcnt:
+r16 rm16 . F3 0F BD /r
+r32 rm32 . F3 0F BD /r
+r64 rm64 . F3 0F BD /r
+
+mfence: ;do I really need this? fuck me. I think not, though.
+. 0F AE F0
+
+mov: ;hell yeah
+rm8 r8 . 88 /r
+rm16 r16 . 89 /r
+rm32 r32 . 89 /r
+rm64 r64 . 89 /r
+r8 rm8 . 8A /r
+r16 rm16 . 8B /r
+r32 rm32 . 8B /r
+r64 rm64 . 8B /r
+reg16/32/64/mem16 segreg . 8C /r ;what is this crap
+segreg rm16 . 8E /r
+al moffset8 . A0
+ax moffset16 . A1
+eax moffset32 . A1
+rax moffset64 . A1
+moffset8 al . A2
+moffset16 ax . A3
+moffset32 eax . A3
+moffset64 rax . A3
+r8 i8 . B0 +rb ib
+r16 i16 . B8 +rw iw
+r32 i32 . B8 +rd id
+r64 i64 . B8 +rq iq
+rm8 i8 . C6 /0 ib
+rm16 i16 . C7 /0 iw
+rm32 i32 . C7 /0 id
+rm64 i32 . C7 /0 id
+
+movd:
+xmm rm32 . 66 0F 6E /r
+xmm rm64 . 66 0F 6E /r
+rm32 xmm . 66 0F 7E /r
+rm64 xmm . 66 0F 7E /r
+mmx rm32 . 0F 6E /r
+mmx rm64 . 0F 6E /r
+rm32 mmx . 0F 7E /r
+rm64 mmx . 0F 7E /r
+
+movmskpd:
+r32 xmm . 66 0F 50 /r
+
+movmskps:
+r32 xmm . 0F 50 /r
+
+movnti:
+m32 r32 . 0F C3 /r
+m64 r64 . 0F C3 /r
+
+movs:
+m8 m8 . A4
+m16 m16 . A5
+m32 m32 . A5
+m64 m64 . A5
+
+movsb:
+. A4
+
+movsw:
+. A5
+
+movsd:
+. A5
+
+movsq:
+. A5
+
+movsx:
+r16 rm8 . 0F BE /r
+r32 rm8 . 0F BE /r
+r64 rm8 . 0F BE /r
+r32 rm16 . 0F BF /r
+r64 rm16 . 0F BF /r
+
+movsxd:
+r64 rm32 . 63 /r
+
+movzx:
+r16 rm8 . 0F B6 /r
+r32 rm8 . 0F B6 /r
+r64 rm8 . 0F B6 /r
+r32 rm16 . 0F B7 /r
+r64 rm16 . 0F B7 /r
+
+mul:
+rm8 . F6 /4
+rm16 . F7 /4
+rm32 . F7 /4
+rm64 . F7 /4
+
+neg:
+rm8 . F6 /3
+rm16 . F7 /3
+rm32 . F7 /3
+rm64 . F7 /3
+
+nop:
+. 90
+rm16 . 0F 1F /0
+rm32 . 0F 1F /0
+rm64 . 0F 1F /0
+
+not:
+rm8 . F6 /2
+rm16 . F7 /2
+rm32 . F7 /2
+rm64 . F7 /2
+
+or:
+al i8 . 0C ib
+ax i16 . 0D iw
+eax i32 . 0D id
+rax i32 . 0D id
+rm8 i8 . 80 /1 ib
+rm16 i16 . 81 /1 iw
+rm32 i32 . 81 /1 id
+rm64 i32 . 81 /1 id
+rm16 i8 . 83 /1 ib
+rm32 i8 . 83 /1 ib
+rm64 i8 . 83 /1 ib
+rm8 r8 . 08 /r
+rm16 r16 . 09 /r
+rm32 r32 . 09 /r
+rm64 r64 . 09 /r
+r8 rm8 . 0A /r
+r16 rm16 . 0B /r
+r32 rm32 . 0B /r
+r64 rm64 . 0B /r
+
+out:
+i8 al . E6 ib
+i8 ax . E7 ib
+i8 eax . E7 ib
+dx al . EE
+dx ax . EF
+dx eax . EF
+
+outs:
+dx m8 . 6E
+dx m16 . 6F
+dx m32 . 6F
+
+outsb:
+. 6E
+
+outsw:
+. 6F
+
+outsd:
+. 6F
+
+pause:
+. F3 90
+
+pop:
+rm16 . 8F /0
+rm32 . 8F /0
+rm64 . 8F /0
+r16 . 58 +rw
+r32 . 58 +rd
+r64 . 58 +rq
+
+;pop ds:
+;. 1F
+;
+;pop es:
+;. 07
+;
+;pop ss:
+;. 17
+
+pop fs:
+. 0F A1
+
+pop gs:
+. 0F A9
+
+popcnt:
+r16 rm16 . F3 0F B8 /r
+r32 rm32 . F3 0F B8 /r
+r64 rm64 . F3 0F B8 /r
+
+popf:
+. 9D
+
+;popfd:
+;. 9D
+
+popfq:
+. 9D
+
+prefetch:
+m8 . 0F 0D /0
+
+prefetchw:
+m8 . 0F 0D /1
+
+prefetchnta:
+m8 . 0F 18 /0
+
+prefetcht0:
+m8 . 0F 18 /1
+
+prefetcht1:
+m8 . 0F 18 /2
+
+prefetcht2:
+m8 . 0F 18 /3
+
+push:
+rm16 . FF /6
+rm32 . FF /6
+rm64 . FF /6
+r16 . 50 +rw
+r32 . 50 +rd
+r64 . 50 +rq
+i8 . 6A ib
+i16 . 68 iw
+i32 . 68 id
+i64 . 68 id
+
+;dick ass no push cs/ss/ds/es
+push fs:
+. 0F A0
+
+push gs:
+. 0F A8
+
+pushf:
+. 9C
+
+pushfd:
+. 9C
+
+pushfq:
+. 9C
+
+rcl: ;inst manual is stupidly ordered
+rm8 1 . D0 /2
+rm16 1 . D1 /2
+rm32 1 . D1 /2
+rm64 1 . D1 /2
+rm8 cl . D2 /2
+rm16 cl . D3 /2
+rm32 cl . D3 /2
+rm64 cl . D3 /2
+rm8 i8 . C0 /2 ib
+rm16 i8 . C1 /2 ib
+rm32 i8 . C1 /2 ib
+rm64 i8 . C1 /2 ib
+
+rcr:
+rm8 1 . D0 /3
+rm16 1 . D1 /3
+rm32 1 . D1 /3
+rm64 1 . D1 /3
+rm8 cl . D2 /3
+rm16 cl . D3 /3
+rm32 cl . D3 /3
+rm64 cl . D3 /3
+rm8 i8 . C0 /3 ib
+rm16 i8 . C1 /3 ib
+rm32 i8 . C1 /3 ib
+rm64 i8 . C1 /3 ib
+
+ret near:
+. C3
+i16 . C2 iw
+
+ret far:
+. CB
+i16 . CA iw
+
+rol:
+rm8 1 . D0 /0
+rm16 1 . D1 /0
+rm32 1 . D1 /0
+rm64 1 . D1 /0
+rm8 cl . D2 /0
+rm16 cl . D3 /0
+rm32 cl . D3 /0
+rm64 cl . D3 /0
+rm8 i8 . C0 /0 ib
+rm16 i8 . C1 /0 ib
+rm32 i8 . C1 /0 ib
+rm64 i8 . C1 /0 ib
+
+ror:
+rm8 1 . D0 /1
+rm16 1 . D1 /1
+rm32 1 . D1 /1
+rm64 1 . D1 /1
+rm8 cl . D2 /1
+rm16 cl . D3 /1
+rm32 cl . D3 /1
+rm64 cl . D3 /1
+rm8 i8 . C0 /1 ib
+rm16 i8 . C1 /1 ib
+rm32 i8 . C1 /1 ib
+rm64 i8 . C1 /1 ib
+
+sahf:
+. 9E
+
+sal:
+rm8 1 . D0 /4
+rm16 1 . D1 /4
+rm32 1 . D1 /4
+rm64 1 . D1 /4
+rm8 cl . D2 /4
+rm16 cl . D3 /4
+rm32 cl . D3 /4
+rm64 cl . D3 /4
+rm8 i8 . C0 /4 ib
+rm16 i8 . C1 /4 ib
+rm32 i8 . C1 /4 ib
+rm64 i8 . C1 /4 ib
+
+shl: ;heh, aliasing...
+rm8 1 . D0 /4
+rm16 1 . D1 /4
+rm32 1 . D1 /4
+rm64 1 . D1 /4
+rm8 cl . D2 /4
+rm16 cl . D3 /4
+rm32 cl . D3 /4
+rm64 cl . D3 /4
+rm8 i8 . C0 /4 ib
+rm16 i8 . C1 /4 ib
+rm32 i8 . C1 /4 ib
+rm64 i8 . C1 /4 ib
+
+sar:
+rm8 1 . D0 /7
+rm16 1 . D1 /7
+rm32 1 . D1 /7
+rm64 1 . D1 /7
+rm8 cl . D2 /7
+rm16 cl . D3 /7
+rm32 cl . D3 /7
+rm64 cl . D3 /7
+rm8 i8 . C0 /7 ib
+rm16 i8 . C1 /7 ib
+rm32 i8 . C1 /7 ib
+rm64 i8 . C1 /7 ib
+
+sbb:
+al i8 . 1C ib
+ax i16 . 1D iw
+eax i32 . 1D id
+rax i32 . 1D id
+rm8 i8 . 80 /3 ib
+rm16 i16 . 81 /3 iw
+rm32 i32 . 81 /3 id
+rm64 i32 . 81 /3 id
+rm16 i8 . 83 /3 ib
+rm32 i8 . 83 /3 ib
+rm64 i8 . 83 /3 ib
+rm8 r8 . 18 /r
+rm16 r16 . 19 /r
+rm32 r32 . 19 /r
+rm64 r64 . 19 /r
+r8 rm8 . 1A /r
+r16 rm16 . 1B /r
+r32 rm32 . 1B /r
+r64 rm64 . 1B /r
+
+scas:
+m8 . AE
+m16 . AF
+m32 . AF
+m64 . AF
+
+scasb:
+. AE
+
+scasw:
+. AF
+
+scasd:
+. AF
+
+scasq:
+. AF
+
+seto:
+rm8 . 0F 90 /0
+
+setno:
+rm8 . 0F 91 /0
+
+setb:
+rm8 . 0F 92 /0
+
+setc:
+rm8 . 0F 92 /0
+
+setnae:
+rm8 . 0F 92 /0
+
+setnb:
+rm8 . 0F 93 /0
+
+setnc:
+rm8 . 0F 93 /0
+
+setae:
+rm8 . 0F 93 /0
+
+setz:
+rm8 . 0F 94 /0
+
+sete:
+rm8 . 0F 94 /0
+
+setnz:
+rm8 . 0F 95 /0
+
+setne:
+rm8 . 0F 95 /0
+
+setbe:
+rm8 . 0F 96 /0
+
+setna:
+rm8 . 0F 96 /0
+
+setnbe:
+rm8 . 0F 97 /0
+
+seta:
+rm8 . 0F 97 /0
+
+sets:
+rm8 . 0F 98 /0
+
+setns:
+rm8 . 0F 99 /0
+
+setp:
+rm8 . 0F 9A /0
+
+setpe:
+rm8 . 0F 9A /0
+
+setnp:
+rm8 . 0F 9B /0
+
+setpo:
+rm8 . 0F 9B /0
+
+setl:
+rm8 . 0F 9C /0
+
+setnge:
+rm8 . 0F 9C /0
+
+setnl:
+rm8 . 0F 9D /0
+
+setge:
+rm8 . 0F 9D /0
+
+setle:
+rm8 . 0F 9E /0
+
+setng:
+rm8 . 0F 9E /0
+
+setnle:
+rm8 . 0F 9F /0
+
+setg:
+rm8 . 0F 9F /0
+
+sfence:
+. 0F AE F8
+
+;shl done up there
+
+shld:
+rm16 r16 i8 . 0F A4 /r ib
+rm32 r32 i8 . 0F A4 /r ib
+rm64 r64 i8 . 0F A4 /r ib
+rm16 r16 cl . 0F A5 /r
+rm32 r32 cl . 0F A5 /r
+rm64 r64 cl . 0F A5 /r
+
+shr:
+rm8 1 . D0 /5
+rm16 1 . D1 /5
+rm32 1 . D1 /5
+rm64 1 . D1 /5
+rmn cl . D2 /5
+rm16 cl . D3 /5
+rm32 cl . D3 /5
+rm64 cl . D3 /5
+rmn i8 . C0 /5 ib
+rm16 i8 . C1 /5 ib
+rm32 i8 . C1 /5 ib
+rm64 i8 . C1 /5 ib
+
+shrd:
+rm16 r16 i8 . 0F AC /r ib
+rm32 r32 i8 . 0F AC /r ib
+rm64 r64 i8 . 0F AC /r ib
+rm16 r16 cl . 0F AD /r
+rm32 r32 cl . 0F AD /r
+rm64 r64 cl . 0F AD /r
+
+stc:
+. F9
+
+std:
+. FD
+
+stos:
+m8 . AA
+m16 . AB
+m32 . AB
+m64 . AB
+
+stosb:
+. AA
+
+stosw:
+. AB
+
+stosd:
+. AB
+
+stosq:
+. AB
+
+sub:
+al i8 . 2C ib
+ax i16 . 2D iw
+eax i32 . 2D id
+rax i32 . 2D id
+rm8 i8 . 80 /5 ib
+rm16 i16 . 81 /5 iw
+rm32 i32 . 81 /5 id
+rm64 i32 . 81 /5 id
+rm16 i8 . 83 /5 ib
+rm32 i8 . 83 /5 ib
+rm64 i8 . 83 /5 ib
+rm8 r8 . 28 /r
+rm16 r16 . 29 /r
+rm32 r32 . 29 /r
+rm64 r64 . 29 /r
+r8 rm8 . 2A /r
+r16 rm16 . 2B /r
+r32 rm32 . 2B /r
+r64 rm64 . 2B /r
+
+test:
+al i8 . A8 ib
+ax i16 . A9 iw
+eax i32 . A9 id
+rax i32 . A9 id
+rm8 i8 . F6 /0 ib
+rm16 i16 . F7 /0 iw
+rm32 i32 . F7 /0 id
+rm64 i32 . F7 /0 id
+rm8 r8 . 84 /r
+rm16 r16 . 85 /r
+rm32 r32 . 85 /r
+rm64 r64 . 85 /r
+
+xadd:
+rm8 r8 . 0F C0 /r
+rm16 r16 . 0F C1 /r
+rm32 r32 . 0F C1 /r
+rm64 r64 . 0F C1 /r
+
+xchg:
+ax r16 . 90 +rw
+eax r32 . 90 +rd
+rax r64 . 90 +rq
+r16 ax . 90 +rw   ;lololololol
+r32 eax . 90 +rd
+r64 rax . 90 +rq
+rm8 r8 . 86 /r
+r8 rm8 . 86 /r
+rm16 r16 . 87 /r
+rm32 r32 . 87 /r
+rm64 r64 . 87 /r
+r16 rm16 . 87 /r
+r32 rm32 . 87 /r
+r64 rm64 . 87 /r
+
+xlat:
+m8 . D7
+
+xlatb:
+. D7
+
+xor:
+al i8 . 34 ib
+ax i16 . 35 iw
+eax i32 . 35 id
+rax i32 . 35 id
+rm8 i8 . 80 /6 ib
+rm16 i16 . 81 /6 iw
+rm32 i32 . 81 /6 id
+rm64 i32 . 81 /6 id
+rm16 i8 . 83 /6 ib
+rm32 i8 . 83 /6 ib
+rm64 i8 . 83 /6 ib
+rm8 r8 . 30 /r
+rm16 r16 . 31 /r
+rm32 r32 . 31 /r
+rm64 r64 . 31 /r
+r8 rm8 . 32 /r
+r16 rm16 . 33 /r
+r32 rm32 . 33 /r
+r64 rm64 . 33 /r
+
+
+
+
+

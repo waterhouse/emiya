@@ -3771,12 +3771,18 @@
 ;a Racket importation of the "call[n]" function annotated with the
 ;correct types.
 
+(def dir-holding (x . dirs)
+  (find [file-exists:string _ "/" x] flat.dirs))
+
 (= asm-code-magic-number #xfffefafd
    asm-dir (string src-directory "../asm"))
 (def compile-asm (name)
-  (withs (base (string asm-dir "/" name))
+  (withs (file-dir (dir-holding (string name ".asm")
+                                asm-dir
+                                (string asm-dir "/crap"))
+          base (string file-dir "/" name))
     (system:string
-     "cd " asm-dir "; " ;so that %include is in right dir
+     "cd " file-dir "; " ;so that %include is in right dir
      "nasm -f macho64 "
      ;now let's give it some info
      (case $.system-type!os
